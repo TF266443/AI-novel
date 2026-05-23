@@ -30,7 +30,7 @@ try {
 }
 
 log.info('='.repeat(50))
-log.info('Long Novel GPT starting...')
+log.info('Novel Mate starting...')
 log.info('App version:', '1.0.0')
 log.info('Electron version:', process.versions.electron)
 log.info('Node version:', process.versions.node)
@@ -161,8 +161,8 @@ function createMenu(): void {
             const { dialog } = require('electron')
             dialog.showMessageBox({
               type: 'info',
-              title: '关于 Long Novel GPT',
-              message: 'Long Novel GPT v1.0.0',
+              title: '关于 Novel Mate',
+              message: 'Novel Mate v1.0.0',
               detail: 'AI 小说改写工具\n\n基于 Electron + React + TypeScript 构建'
             })
           }
@@ -216,7 +216,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.longnovelgpt.app')
+  electronApp.setAppUserModelId('com.novelmate.app')
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)

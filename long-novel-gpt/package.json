@@ -1,5 +1,5 @@
 {
-  "name": "long-novel-gpt",
+  "name": "novel-mate",
   "version": "1.0.0",
   "description": "AI-powered novel rewriting desktop application",
   "main": "./out/main/index.js",

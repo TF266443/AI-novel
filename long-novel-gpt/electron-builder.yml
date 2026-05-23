@@ -1,5 +1,5 @@
-appId: com.longnovelgpt.app
-productName: Long Novel GPT
+appId: com.novelmate.app
+productName: Novel Mate
 directories:
   buildResources: resources
   output: dist

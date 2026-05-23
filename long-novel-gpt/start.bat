@@ -1,10 +1,10 @@
 @echo off
-title Long Novel GPT
+title Novel Mate
 
 cd /d "%~dp0"
 
 echo ======================================
-echo   Long Novel GPT v1.0.0
+echo   Novel Mate v1.0.0
 echo ======================================
 echo.
 

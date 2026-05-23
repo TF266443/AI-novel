@@ -377,7 +377,7 @@ export default function SettingsPage() {
           <div className="p-6">
             <h2 className="text-lg font-medium text-gray-900 mb-4">关于</h2>
             <div className="space-y-2 text-sm text-gray-600">
-              <p>Long Novel GPT v1.0.0</p>
+              <p>Novel Mate v1.0.0</p>
               <p>AI 小说改写工具</p>
               <p className="text-gray-400">基于 Electron + React + TypeScript 构建</p>
             </div>

@@ -124,7 +124,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto p-8">
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Long Novel GPT</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Novel Mate</h1>
           <div className="flex gap-3">
             <button onClick={() => setPage('models')} className="px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50">模型管理</button>
             <button onClick={() => setPage('templates')} className="px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50">模板管理</button>

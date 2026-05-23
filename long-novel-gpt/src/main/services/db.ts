@@ -7,7 +7,7 @@ let db: Database.Database | null = null
 
 export function getDbPath(): string {
   const userDataPath = app.getPath('userData')
-  return join(userDataPath, 'long-novel-gpt.db')
+  return join(userDataPath, 'novel-mate.db')
 }
 
 export function initDatabase(): void {
