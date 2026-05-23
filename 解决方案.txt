@@ -1,0 +1,106 @@
+# 第三步「场景识别」失败/不准的根因分析与解决方案
+
+我读了 `ScanStage.tsx` (识别主流程) 和 `ipc/ai.ts:195` (`ai:classify`)，这一步当前的实现存在几个结构性问题。
+
+## 一、根因诊断（按影响排序）
+
+| # | 问题 | 触发的失败/不准类型 | 代码位置 |
+|---|------|----|----|
+| 1 | **全章截断到 4000 字** (`text.slice(0, 4000)`) | 长章后半段所有场景**全漏识别** | ScanStage.tsx:118 |
+| 2 | **关键词预过滤硬阈值 ≥2 命中** | 同义/隐喻/委婉场景**召回率低**（"她绯红了双颊"匹配不到关键词"羞涩"） | ScanStage.tsx:102 |
+| 3 | **布尔分类 + 关键词回填位置** (`-20/+40` 字窗口) | 即便分类对了，**位置仍然错**——把"场景在哪"和"关键词在哪"混淆 | ScanStage.tsx:135–146 |
+| 4 | **关键词抽取过于幼稚**（按标点切，长度2–8强约束） | 类目规则写得自然语言一些就抽不出关键词，**前置过滤直接 false** | ScanStage.tsx:13–28 |
+| 5 | **JSON Schema 仅对 Ollama 强约束**，OpenAI 兼容侧只用 `json_object` | 其他模型偶发返回非合法 JSON → `success:false` 静默丢弃 | ai.ts:229–258 |
+| 6 | **confidence 是模型瞎填的**，默认 0.5；UI 不展示 | 用户看不到"哪些是高置信、哪些可疑"，**无法分流处理** | ScanStage.tsx:123 |
+| 7 | **单轮调用、无重试链、无降级** | 网络/速率/解析失败 → 整章无 tag，看起来像"AI 不识别" | 全流程 |
+| 8 | **类目重叠时无去重**，同一段落被多个类目重复标 | 视觉混乱、用户以为"识别错了"，其实是召回冗余 | ScanStage.tsx:209–217 |
+| 9 | **prompt 无 few-shot、无拒答约束** | 模型在长文本上倾向"宁可信其有"→**假阳性偏高** | ScanStage.tsx:118 |
+
+## 二、解决方案（分层、可灰度上线）
+
+### Layer 1 · 文本分块（P0,投入最小、收益最大）
+- 按段落聚合成 800–1200 字、重叠 150 字的 chunk；保留 chunk 的全局 offset
+- 每个 chunk 独立做识别，章末再合并
+- **直接消除问题 #1，并使问题 #3 的位置窗口大幅收窄**
+
+### Layer 2 · 召回阶段重写
+取消"≥2 关键词命中"硬阈值，改为多路召回并集：
+1. 关键词召回（**只要 ≥1 命中**就进候选）
+2. **同义词扩展**：模板创建/编辑时，调一次 LLM 给每个 category 生成同义词/隐喻词典，存到 `templates.recognition_rules.synonyms`，运行时复用，零额外开销
+3. （可选 P1）Embedding 召回：复用项目里已有的 `embed/nomic` 模型，对 chunk vs `buildSceneDesc(cat)` 算 cosine，topK 入候选
+
+### Layer 3 · 分类输出"证据片段"而非靠关键词反查位置
+关键改动：让 LLM 直接吐**原文片段**作为 evidence，前端用 `chunk.indexOf(evidence)` 精确还原 `start/end`。
+
+```ts
+// 新的 jsonSchema
+{
+  type: 'object',
+  properties: {
+    matches: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          categoryId: { type: 'string' },
+          confidence: { type: 'number', minimum: 0, maximum: 1 },
+          evidence: { type: 'string', description: '直接复制原文片段，不要改写' },
+        },
+        required: ['categoryId', 'confidence', 'evidence'],
+      },
+    },
+  },
+  required: ['matches'],
+}
+```
+一次调用判断**所有**候选类目（而不是 N 次布尔），减少 N–1 次往返。
+
+### Layer 4 · 全模型统一结构化输出
+`ai:classify` 中：
+- OpenAI 兼容路径升级为 `response_format: { type: 'json_schema', json_schema: { name, schema, strict: true } }`（DeepSeek/Qwen/智谱已支持）
+- 不支持 `json_schema` 的模型回退到 `json_object` + 自带的 `safeParseAIJson` 修复
+- 解析失败时**重试一次**（temperature 调到 0），仍失败再降级
+
+### Layer 5 · 鲁棒性 & 重试链
+按以下顺序兜底：
+1. 正常调用 → 失败/解析错
+2. 缩半 chunk 重试一次
+3. 切换备用模型（设置中可配）
+4. 走纯关键词兜底（保证至少有结果，并标 `confidence: 0.3`）
+
+每个 chunk 的失败原因写到 `chapter.scan_metrics.failedChunks`，UI 在 `StatsPanel` 可视化。
+
+### Layer 6 · Few-shot 闭环（持续提升准确率的关键）
+- 用户**手动标记的 tag** → 正例 few-shot
+- 用户**点击取消的 AI tag** → 负例 few-shot（升级现有 onClick 取消，加可选"标为错误"按钮）
+- 二者写入 `templates.recognition_rules.examples`，下次 prompt 时注入 3–5 条
+- **这是真正的护城河**：用得越久越准
+
+### Layer 7 · 可观测性
+在 `chapters` 表加 `scan_metrics JSON`：
+```ts
+interface ScanMetrics {
+  chunks: number
+  recallCount: number
+  classifyCalls: number
+  failedChunks: Array<{ chunkIndex: number; reason: string }>
+  avgConfidence: number
+  durationMs: number
+}
+```
+UI 在标题旁显示「12 chunks · 8 命中 · 平均置信度 0.78」，用户和你都能立刻定位"识别失败到底失败在哪一步"。
+
+## 三、落地优先级建议
+
+| 阶段 | 工作量 | 预期效果 |
+|------|------|----|
+| **P0**（建议立刻做） | ~1天 | 分块 + evidence 输出 + 一次调用多类目 + 全模型 JSON Schema + 重试链 |
+| **P1** | 1–2 天 | 同义词扩展 + few-shot 闭环 + scan_metrics + UI 可视化 |
+| **P2** | 2–3 天 | Embedding 召回 + 自一致性裁判 + 评测金标集（50 章 × N 类目，跑回归） |
+
+## 四、风险与回滚
+- 所有改动控制在 `ScanStage.tsx` + `ai:classify` + 模板 schema 的同义词/示例字段
+- 新字段对老项目向下兼容（缺省即跳过）
+- 关键词兜底永远存在 → **最坏情况退化到当前行为**，不会比现在更差
+
+要不要我先把 P0（分块 + evidence + 统一 JSON Schema + 重试链）写一版可运行的 PR？这是 ROI 最高的一步，应该能立刻让识别失败率显著下降。

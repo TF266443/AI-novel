@@ -1,0 +1,27 @@
+{
+  "name": "XT-Webnovel-Writing Skill Pack",
+  "version": "2.0",
+  "description": "基于 xt-webnovel-writing-main 的完整规则体系，25条主规则 + 50+补充条款 + 结构方法 + 工艺模板。共12个skill文件。",
+  "groups": {
+    "core_required": [
+      { "file": "xt_core_rollback.json", "name": "核心回滚级硬门(8条)", "priority": 1 },
+      { "file": "xt_style_prose.json", "name": "文笔与风格规则(12条FAIL)", "priority": 1 },
+      { "file": "xt_supplement_missing.json", "name": "校对补全规则(12条)", "priority": 1 }
+    ],
+    "structure_required": [
+      { "file": "xt_structure_plot.json", "name": "情节结构(八步事件法+开头池+闸门)", "priority": 1 }
+    ],
+    "craft_optional": [
+      { "file": "xt_craft_vr.json", "name": "工艺描写(VR沉浸+5模板+爽点+词替)", "priority": 2 },
+      { "file": "xt_characters_relationship.json", "name": "角色灵魂+关系动力学", "priority": 2 },
+      { "file": "xt_dialogue_transition.json", "name": "对话工艺+场景过渡", "priority": 2 }
+    ],
+    "basic_standalone": [
+      { "file": "anti_ai_rollback_rules.json", "name": "反AI-8条rollback规则(独立)", "priority": 3 },
+      { "file": "anti_ai_warn_rules.json", "name": "反AI-10条WARN/FAIL规则(独立)", "priority": 3 },
+      { "file": "structure_eight_step.json", "name": "结构-八步事件法(独立)", "priority": 3 },
+      { "file": "structure_opening_pool.json", "name": "结构-开头反镜像7模板(独立)", "priority": 3 },
+      { "file": "craft_vr_immersion.json", "name": "工艺-VR沉浸描写(独立)", "priority": 3 }
+    ]
+  }
+}
